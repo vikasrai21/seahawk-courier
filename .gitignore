@@ -59,3 +59,9 @@ postgres_data/
 .cache/
 .parcel-cache/
 .turbo/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
