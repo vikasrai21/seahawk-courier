@@ -456,12 +456,12 @@ header { position:sticky; top:0; z-index:200; background:#fff; border-bottom:1px
 .testi-role { font-size:.74rem; color:var(--ink-3) }
 
 /* ── CTA BAND ── */
-#cta-band { background:var(--orange); padding:80px 0; text-align:center; position:relative; overflow:hidden }
-#cta-band::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,var(--orange) 0%,#ff7a2e 100%); pointer-events:none }
+#cta-band { background:var(--navy-2); padding:80px 0; text-align:center; position:relative; overflow:hidden }
+#cta-band::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,var(--navy) 0%,var(--navy-3) 100%); pointer-events:none }
 #cta-band::after { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg width='48' height='48' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23fff' fill-opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none }
 .cta-inner { position:relative; z-index:1 }
 .cta-inner h2 { font-family:var(--font-head); font-size:clamp(2rem,4vw,3.2rem); color:#fff; font-weight:900; margin-bottom:14px; letter-spacing:-.02em }
-.cta-inner h2 span { color:var(--navy) }
+.cta-inner h2 span { color:var(--orange) }
 .cta-inner p { font-size:1rem; color:rgba(255,255,255,.88); max-width:500px; margin:0 auto 36px; line-height:1.78 }
 .cta-btns { display:flex; gap:14px; justify-content:center; flex-wrap:wrap }
 .cta-phones { margin-top:26px; display:flex; align-items:center; justify-content:center; gap:22px; flex-wrap:wrap }
@@ -484,7 +484,7 @@ header { position:sticky; top:0; z-index:200; background:#fff; border-bottom:1px
 footer { background:var(--navy); padding:60px 0 28px }
 .footer-grid { display:grid; grid-template-columns:2.2fr 1fr 1fr 1fr; gap:48px; padding-bottom:48px; border-bottom:1px solid rgba(255,255,255,.08) }
 .footer-logo img { height:52px; object-fit:contain; filter:brightness(0) invert(1); margin-bottom:16px }
-.footer-brand p { font-size:.81rem; color:rgba(255,255,255,.5); line-height:1.82; margin-bottom:18px; max-width:260px }
+.footer-brand { font-size:.81rem; color:var(--orange-ll); line-height:1.82; margin-bottom:18px; max-width:260px; font-weight:500 }
 .footer-contacts { display:flex; flex-direction:column; gap:7px }
 .fci { font-size:.81rem; color:rgba(255,255,255,.6) }
 .fci a:hover { color:var(--orange-ll) }

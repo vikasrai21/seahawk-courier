@@ -1,269 +1,245 @@
 /* ============================================================
-   SEA HAWK COURIER & CARGO — Rate Calculator
-   Rates sourced from original newFile.js + rateEngine.js
+   SEA HAWK COURIER — Rate Calculator
+   Source: SeaHawk Rate Card v10 FINAL
+   
+   Domestic Document & Packet · Heavy Surface · Heavy Air
+   Priority Services · International
+   
+   Surcharges: FSC 25% · GST 18% · Insurance optional
    ============================================================ */
 
-/* ── RATE TABLES ── */
-
-// Normal Service Rates (per consignment) - mapped to "DOMESTIC DOCUMENT & PACKET RATES" (Up to 250g)
-const NORMAL_RATES = {
-  localNCR:    { base: 22,  additional: 12 }, // Up to 250g: 22, 500g: 25, Addl 500g: 12 (Using 250g base, but scaling correctly in calculate function)
-  northIndia:  { base: 28,  additional: 14 },
-  metro:       { base: 35,  additional: 35 },
-  restIndia:   { base: 40,  additional: 38 },
-  northEast:   { base: 65,  additional: 45 },
-  diplomatic:  { base: 75,  additional: 50 },
+/* ── DOMESTIC DOCUMENT & PACKET (per consignment, grams) ─── */
+const DOC_RATES = {
+  localNCR:   { w250: 22,  w500: 25,  addl: 12 },
+  northIndia: { w250: 28,  w500: 40,  addl: 14 },
+  metro:      { w250: 35,  w500: 55,  addl: 35 },
+  restIndia:  { w250: 40,  w500: 65,  addl: 38 },
+  northEast:  { w250: 65,  w500: 80,  addl: 45 },
+  diplomatic: { w250: 75,  w500: 95,  addl: 50 },
 };
 
-// Premium Service Rates (per consignment) - mapped to "PRIORITY SERVICES" (Up to 500g)
-const PREMIUM_RATES = {
-  localNCR:    { base: 70,  additional: 50 },
-  northIndia:  { base: 100, additional: 75 },
-  metro:       { base: 140, additional: 100 }, // Assuming Rest of India / Metro pricing
-  restIndia:   { base: 140, additional: 100 },
-  northEast:   { base: 175, additional: 125 },
-  diplomatic:  { base: 200, additional: 150 }, // Approximation since not listed
+/* ── PRIORITY SERVICES (per consignment, grams) ─────────── */
+const PRIORITY_RATES = {
+  localNCR:   { w500: 70,  w1kg: 100, addl: 50  },
+  northIndia: { w500: 100, w1kg: 140, addl: 75  },
+  restIndia:  { w500: 140, w1kg: 190, addl: 100 },
+  northEast:  { w500: 175, w1kg: 225, addl: 125 },
 };
 
-// Heavy Weight Rates (per kg) - mapped to "HEAVY CARGO — SURFACE" and "AIR"
-const HEAVY_RATES = {
-  localNCRHeavy:   22, // 3-10kg surface
-  northIndiaHeavy: 30, // 3-10kg surface
-  majorCity:       35, // 3-10kg surface (Metro)
-  restIndiaHeavy:  45, // 3-10kg surface
-  restIndiaAir:    88, // <5kg air mapping
-  diplomaticHeavy: 120, // Port Blair surface 3-10kg
+/* ── HEAVY SURFACE (per kg, min 3 kg) ────────────────────── */
+const HEAVY_SFC = {
+  localNCR:   { r3: 22,  r10: 20,  r25: 18,  r50: 16,  r100: 15 },
+  northIndia: { r3: 30,  r10: 28,  r25: 25,  r50: 22,  r100: 20 },
+  metro:      { r3: 35,  r10: 32,  r25: 30,  r50: 29,  r100: 27 },
+  restIndia:  { r3: 45,  r10: 43,  r25: 40,  r50: 38,  r100: 35 },
+  northEast:  { r3: 55,  r10: 52,  r25: 50,  r50: 47,  r100: 45 },
+  kashmir:    { r3: 60,  r10: 55,  r25: 52,  r50: 48,  r100: 46 },
+  portBlair:  { r3: 120, r10: 110, r25: 90,  r50: 85,  r100: 80 },
 };
 
-// International Rates (per 500g)
-const INTL_RATES = {
-  zoneA: { dox: 1200, sample: 1425, addlDox: 350, addlSample: 510 },
-  zoneB: { dox: 1450, sample: 1675, addlDox: 460, addlSample: 520 },
-  zoneC: { dox: 1600, sample: 1800, addlDox: 510, addlSample: 595 },
-  zoneD: { dox: 1700, sample: 1900, addlDox: 565, addlSample: 620 },
-  zoneE: { dox: 1875, sample: 1975, addlDox: 595, addlSample: 675 },
-  zoneF: { dox: 1975, sample: 2125, addlDox: 625, addlSample: 725 },
-  zoneG: { dox: 2250, sample: 2450, addlDox: 630, addlSample: 745 },
-  zoneH: { dox: 2550, sample: 2750, addlDox: 630, addlSample: 745 }, // Zone G + 300
+/* ── HEAVY AIR (per kg, min 3 kg) ────────────────────────── */
+const HEAVY_AIR = {
+  srinagar:  { lt5: 72,  r5: 70,  r10: 65,  r25: 62,  r50: 60 },
+  biharJh:   { lt5: 80,  r5: 78,  r10: 75,  r25: 72,  r50: 70 },
+  metro:     { lt5: 85,  r5: 80,  r10: 78,  r25: 75,  r50: 74 },
+  restIndia: { lt5: 88,  r5: 85,  r10: 82,  r25: 80,  r50: 78 },
+  northEast: { lt5: 95,  r5: 90,  r10: 85,  r25: 82,  r50: 80 },
+  portBlair: { lt5: 125, r5: 110, r10: 100, r25: 95,  r50: 90 },
 };
 
-// Country → Zone mapping
+/* ── INTERNATIONAL (per 500g) ────────────────────────────── */
+const INTL = {
+  zoneA: { dox: 1200, nondox: 1425, addlDox: 350, addlNon: 510 },
+  zoneB: { dox: 1450, nondox: 1675, addlDox: 460, addlNon: 520 },
+  zoneC: { dox: 1600, nondox: 1800, addlDox: 510, addlNon: 595 },
+  zoneD: { dox: 1700, nondox: 1900, addlDox: 565, addlNon: 620 },
+  zoneE: { dox: 1875, nondox: 1975, addlDox: 595, addlNon: 675 },
+  zoneF: { dox: 1975, nondox: 2125, addlDox: 625, addlNon: 725 },
+  zoneG: { dox: 2250, nondox: 2450, addlDox: 630, addlNon: 745 },
+};
+const ZONE_H_ADD = 300;   // Zone H = Zone G + ₹300
+const DHL_ADD    = 350;   // Via DHL/FedEx
+const FSC        = 0.25;  // 25% Fuel Surcharge
+const GST        = 0.18;  // 18% GST
+const INS_RATE   = 0.002; // 0.2% (min ₹50)
+
 const COUNTRY_ZONE = {
-  "bangladesh":"zoneA","bhutan":"zoneA","maldives":"zoneA","nepal":"zoneA","sri lanka":"zoneA","united arab emirates":"zoneA",
-  "bahrain":"zoneB","hong kong":"zoneB","iran":"zoneB","jordan":"zoneB","kuwait":"zoneB","oman":"zoneB","pakistan":"zoneB","qatar":"zoneB","saudi arabia":"zoneB","singapore":"zoneB","yemen":"zoneB",
-  "australia":"zoneC","china":"zoneC","indonesia":"zoneC","korea":"zoneC","malaysia":"zoneC","new zealand":"zoneC","philippines":"zoneC","thailand":"zoneC","vietnam":"zoneC",
-  "belgium":"zoneD","denmark":"zoneD","france":"zoneD","germany":"zoneD","italy":"zoneD","netherlands":"zoneD","united kingdom":"zoneD","switzerland":"zoneD",
-  "canada":"zoneE","mexico":"zoneE","united states":"zoneE",
-  "japan":"zoneF",
-  "austria":"zoneG","finland":"zoneG","greece":"zoneG","israel":"zoneG","norway":"zoneG","poland":"zoneG","portugal":"zoneG","romania":"zoneG","south africa":"zoneG","spain":"zoneG","sweden":"zoneG","turkey":"zoneG",
+  'bangladesh':'zoneA','bhutan':'zoneA','maldives':'zoneA','nepal':'zoneA',
+  'sri lanka':'zoneA','united arab emirates':'zoneA',
+  'bahrain':'zoneB','hong kong':'zoneB','iran':'zoneB','jordan':'zoneB',
+  'kuwait':'zoneB','oman':'zoneB','pakistan':'zoneB','qatar':'zoneB',
+  'saudi arabia':'zoneB','singapore':'zoneB','syria':'zoneB','yemen':'zoneB',
+  'australia':'zoneC','brunei':'zoneC','cambodia':'zoneC','china':'zoneC',
+  'indonesia':'zoneC','korea':'zoneC','macau':'zoneC','taiwan':'zoneC',
+  'malaysia':'zoneC','myanmar':'zoneC','new zealand':'zoneC',
+  'philippines':'zoneC','thailand':'zoneC','vietnam':'zoneC',
+  'belgium':'zoneD','denmark':'zoneD','france':'zoneD','germany':'zoneD',
+  'italy':'zoneD','luxembourg':'zoneD','netherlands':'zoneD',
+  'united kingdom':'zoneD','switzerland':'zoneD',
+  'canada':'zoneE','mexico':'zoneE','united states':'zoneE',
+  'japan':'zoneF',
+  'austria':'zoneG','bulgaria':'zoneG','canary islands':'zoneG',
+  'finland':'zoneG','greece':'zoneG','israel':'zoneG','norway':'zoneG',
+  'poland':'zoneG','portugal':'zoneG','romania':'zoneG',
+  'south africa':'zoneG','spain':'zoneG','sweden':'zoneG',
+  'malta':'zoneG','turkey':'zoneG','hungary':'zoneG',
+};
+const ZONE_NAMES = {
+  zoneA:'Bangladesh · Bhutan · Maldives · Nepal · Sri Lanka · UAE',
+  zoneB:'Bahrain · HK · Iran · Jordan · Kuwait · Oman · Pakistan · Qatar · Saudi Arabia · Singapore · Yemen',
+  zoneC:'Australia · China · Indonesia · Korea · Malaysia · NZ · Philippines · Thailand · Vietnam',
+  zoneD:'Belgium · Denmark · France · Germany · Italy · Netherlands · Switzerland · UK',
+  zoneE:'Canada · Mexico · USA',
+  zoneF:'Japan',
+  zoneG:'Austria · Finland · Greece · Israel · Norway · Poland · Portugal · Romania · South Africa · Spain · Sweden · Turkey',
+  zoneH:'Rest of World (Zone G + ₹300)',
 };
 
-const ZONE_COUNTRIES = {
-  zoneA: "Bangladesh, Bhutan, Maldives, Nepal, Sri Lanka, UAE",
-  zoneB: "Bahrain, Hong Kong, Iran, Jordan, Kuwait, Oman, Pakistan, Qatar, Saudi Arabia, Singapore, Yemen",
-  zoneC: "Australia, China, Indonesia, Korea, Malaysia, New Zealand, Philippines, Thailand, Vietnam",
-  zoneD: "Belgium, Denmark, France, Germany, Italy, Netherlands, Switzerland, UK",
-  zoneE: "Canada, Mexico, USA",
-  zoneF: "Japan",
-  zoneG: "Austria, Finland, Greece, Israel, Norway, Poland, Portugal, Romania, South Africa, Spain, Sweden, Turkey",
-  zoneH: "Rest of World (+₹ 300 from Zone G)",
-};
+/* ── HELPERS ─────────────────────────────────────────────── */
+function sfcRate(zone, kg) {
+  const r = HEAVY_SFC[zone] || HEAVY_SFC.restIndia;
+  return kg <= 10 ? r.r3 : kg <= 25 ? r.r10 : kg <= 50 ? r.r25 : kg <= 100 ? r.r50 : r.r100;
+}
+function airRate(zone, kg) {
+  const r = HEAVY_AIR[zone] || HEAVY_AIR.restIndia;
+  return kg < 5 ? r.lt5 : kg <= 10 ? r.r5 : kg <= 25 ? r.r10 : kg <= 50 ? r.r25 : r.r50;
+}
+function rnd(n) { return Math.round(n * 100) / 100; }
+function fmt(n) { return '₹' + n.toFixed(2); }
+function el(id) { return document.getElementById(id); }
+function show(id, v) { const e = el(id); if (e) e.style.display = v ? '' : 'none'; }
 
-const FUEL_SURCHARGE = 0.27;
-const GST_RATE       = 0.18;
-const INSURANCE_RATE = 0.05;
-
-const STATE_ZONES = {
-  delhiNcr:       { normal: 'localNCR',   heavySurface: 'localNCRHeavy',   heavyAir: 'restIndiaAir' },
-  mumbai:         { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  bangalore:      { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  chennai:        { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  kolkata:        { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  hyderabad:      { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  pune:           { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  ahmedabad:      { normal: 'metro',      heavySurface: 'majorCity',       heavyAir: 'majorCity' },
-  haryana:        { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  punjab:         { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  up:             { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  rajasthan:      { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  hp:             { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  uk:             { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  chandigarh:     { normal: 'northIndia', heavySurface: 'northIndiaHeavy', heavyAir: 'restIndiaAir' },
-  gujarat:        { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  mp:             { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  maharashtra:    { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  goa:            { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  karnataka:      { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  kerala:         { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  tn:             { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  ap:             { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  telangana:      { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  odisha:         { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  chhattisgarh:   { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  wb:             { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'restIndiaAir' },
-  biharJharkhand: { normal: 'restIndia',  heavySurface: 'restIndiaHeavy',  heavyAir: 'biharJharkhand' },
-  jammukashmir:   { normal: 'northEast',  heavySurface: 'kashmir',         heavyAir: 'srinagarSector' },
-  northeast:      { normal: 'northEast',  heavySurface: 'northEast',       heavyAir: 'northEastAir' },
-  portblair:      { normal: 'diplomatic', heavySurface: 'portBlair',       heavyAir: 'portBlairAir' },
-};
-
-/* ── TOGGLE FIELDS BASED ON SERVICE ── */
+/* ── TOGGLE FIELDS ───────────────────────────────────────── */
 function calcToggleFields() {
-  const svc = document.getElementById('c-svc')?.value;
-  if (!svc) return;
-
+  const svc = el('c-svc')?.value || 'doc';
   const isIntl  = svc === 'international';
-  const isHeavy = svc.startsWith('heavy');
+  const isSfc   = svc === 'heavy-sfc';
+  const isAir   = svc === 'heavy-air';
+  const isPri   = svc === 'priority';
+  const isHeavy = isSfc || isAir;
 
-  // Wrap visibility logic
-  const stateWrap     = document.getElementById('c-dest-state-wrap');
-  const countryWrap   = document.getElementById('c-country-wrap');
-  const typeWrap      = document.getElementById('c-type-wrap');
+  show('c-zone-wrap',       !isIntl && !isHeavy && !isPri);
+  show('c-priority-wrap',   isPri);
+  show('c-heavy-sfc-wrap',  isSfc);
+  show('c-heavy-air-wrap',  isAir);
+  show('c-country-wrap',    isIntl);
+  show('c-dest-wrap',       isIntl);
+  show('c-type-wrap',       isIntl);
+  show('c-dhl-row',         isIntl);
 
-  if (stateWrap)   stateWrap.style.display   = isIntl ? 'none' : '';
-  if (countryWrap) countryWrap.style.display = isIntl ? '' : 'none';
-  if (typeWrap)    typeWrap.style.display    = isIntl ? '' : 'none';
-
-  // Min weight logic
-  const wInput = document.getElementById('c-weight');
-  if (wInput) wInput.min = isHeavy ? '5000' : '1';
+  const wlbl = el('c-weight-lbl');
+  if (wlbl) wlbl.textContent = isHeavy ? 'Weight (kg)' : 'Weight (grams)';
+  const wi = el('c-weight');
+  if (wi) wi.placeholder = isHeavy ? 'e.g. 5' : 'e.g. 500';
 
   updateZoneFromCountry();
   computeRate();
 }
 
-/* ── AUTO-SELECT ZONE FROM COUNTRY ── */
 function updateZoneFromCountry() {
-  const country  = document.getElementById('c-country')?.value?.toLowerCase().trim();
-  const destSel  = document.getElementById('c-destination');
-  const svc      = document.getElementById('c-svc')?.value;
-  if (svc !== 'international' || !country || !destSel) return;
-
+  if (el('c-svc')?.value !== 'international') return;
+  const country = el('c-country')?.value?.toLowerCase().trim() || '';
+  const dest    = el('c-destination');
+  if (!dest) return;
   const zone = COUNTRY_ZONE[country] || 'zoneH';
-  destSel.value = zone;
-  showZoneCountries(zone);
+  dest.value = zone;
+  showZone(zone);
 }
 
-function showZoneCountries(zone) {
-  const el = document.getElementById('zone-info');
-  if (!el) return;
-  if (zone && zone.startsWith('zone')) {
-    el.textContent = `🌍 ${zone.toUpperCase()}: ${ZONE_COUNTRIES[zone]}`;
-    el.classList.add('show');
-  } else {
-    el.classList.remove('show');
-  }
+function showZone(zone) {
+  const zi = el('zone-info');
+  if (!zi) return;
+  if (zone) { zi.textContent = `🌍 ${zone.toUpperCase()}: ${ZONE_NAMES[zone] || ''}`; zi.classList.add('show'); }
+  else { zi.classList.remove('show'); }
 }
 
-/* ── COMPUTE RATE ── */
+/* ── MAIN CALCULATION ────────────────────────────────────── */
 function computeRate() {
-  const svc    = document.getElementById('c-svc')?.value;
-  const weight = parseFloat(document.getElementById('c-weight')?.value) || 0;
+  const svc = el('c-svc')?.value || 'doc';
+  const w   = parseFloat(el('c-weight')?.value) || 0;
+  if (w <= 0) { el('calcResult')?.classList.remove('show'); return; }
 
-  if (!svc || weight <= 0) {
-    const box = document.getElementById('calcResult');
-    if (box) box.classList.remove('show');
-    return;
+  const hasIns = el('c-ins')?.checked;
+  const hasDhl = el('c-dhl')?.checked;
+  let base = 0;
+
+  if (svc === 'doc') {
+    const r = DOC_RATES[el('c-zone')?.value || 'localNCR'] || DOC_RATES.localNCR;
+    if (w <= 250) base = r.w250;
+    else if (w <= 500) base = r.w500;
+    else base = r.w500 + Math.ceil((w - 500) / 500) * r.addl;
   }
 
-  let baseCost = 0;
-
-  if (svc === 'normal' || svc === 'premium') {
-    const state = document.getElementById('c-dest-state')?.value;
-    if (!state) return; // Wait for selection
-    const destZone = STATE_ZONES[state]?.normal || 'localNCR';
-    
-    const rates = svc === 'normal' ? NORMAL_RATES : PREMIUM_RATES;
-    const r     = rates[destZone] || rates.localNCR;
-    const threshold = svc === 'normal' ? 250 : 500;
-    
-    if (weight <= threshold) {
-      baseCost = r.base;
-    } else {
-      const extra = Math.ceil((weight - threshold) / 500); // the additional is per 500g slab
-      baseCost = r.base + extra * r.additional;
-    }
-
-  } else if (svc.startsWith('heavy')) {
-    if (weight < 5000) { alert('Heavy weight service requires minimum 5 kg (5000g).'); return; }
-    const state = document.getElementById('c-dest-state')?.value;
-    if (!state) return; // Wait for selection
-    
-    const isAir = svc === 'heavyAir';
-    const destZone = isAir ? STATE_ZONES[state]?.heavyAir : STATE_ZONES[state]?.heavySurface;
-    
-    baseCost = (HEAVY_RATES[destZone] || 35) * (weight / 1000);
-
-  } else if (svc === 'international') {
-    const zone = document.getElementById('c-destination')?.value || 'zoneA';
-    const type = document.getElementById('c-type')?.value || 'dox';
-    const r    = INTL_RATES[zone] || INTL_RATES.zoneH;
-
-    const baseRate  = type === 'dox' ? r.dox  : r.sample;
-    const addlRate  = type === 'dox' ? r.addlDox : r.addlSample;
-
-    if (weight <= 500) {
-      baseCost = baseRate;
-    } else {
-      const extraSlabs = Math.ceil((weight - 500) / 500);
-      baseCost = baseRate + extraSlabs * addlRate;
-    }
-    // Dox above 2.5kg charged as sample
-    if (weight > 2500 && type === 'dox') baseCost = r.sample + Math.ceil((weight - 500) / 500) * r.addlSample;
-    // Zone H extra
-    if (zone === 'zoneH') baseCost += 300; // Rate card states +300
-    // DHL/FedEx extra
-    if (document.getElementById('c-dhl')?.checked) baseCost += 350;
-
-    showZoneCountries(zone);
+  else if (svc === 'priority') {
+    const r = PRIORITY_RATES[el('c-priority-zone')?.value || 'localNCR'] || PRIORITY_RATES.localNCR;
+    if (w <= 500) base = r.w500;
+    else if (w <= 1000) base = r.w1kg;
+    else base = r.w1kg + Math.ceil((w - 1000) / 500) * r.addl;
   }
 
-  const fuelSurcharge = baseCost * FUEL_SURCHARGE;
-  const hasInsurance  = document.getElementById('c-ins')?.checked;
-  const insuranceCost = hasInsurance ? baseCost * INSURANCE_RATE : 0;
-  const gst           = (baseCost + fuelSurcharge + insuranceCost) * GST_RATE;
-  const total         = baseCost + fuelSurcharge + insuranceCost + gst;
+  else if (svc === 'heavy-sfc') {
+    if (w < 3) { alert('Minimum chargeable weight: 3 kg'); return; }
+    const zone = el('c-heavy-sfc-zone')?.value || 'localNCR';
+    base = w * sfcRate(zone, w);
+  }
 
-  const fmt = n => '₹' + n.toFixed(2);
-  document.getElementById('r-base').textContent  = fmt(baseCost);
-  document.getElementById('r-fuel').textContent  = fmt(fuelSurcharge);
-  document.getElementById('r-ins').textContent   = fmt(insuranceCost);
-  document.getElementById('r-gst').textContent   = fmt(gst);
-  document.getElementById('r-total').textContent = fmt(total);
+  else if (svc === 'heavy-air') {
+    if (w < 3) { alert('Minimum chargeable weight: 3 kg'); return; }
+    const zone = el('c-heavy-air-zone')?.value || 'metro';
+    base = w * airRate(zone, w);
+  }
 
-  const insRow = document.getElementById('r-ins-row');
-  if (insRow) insRow.style.display = hasInsurance ? '' : 'none';
+  else if (svc === 'international') {
+    const zone = el('c-destination')?.value || 'zoneA';
+    const type = el('c-type')?.value || 'dox';
+    let r;
+    if (zone === 'zoneH') {
+      r = { ...INTL.zoneG, dox: INTL.zoneG.dox + ZONE_H_ADD, nondox: INTL.zoneG.nondox + ZONE_H_ADD };
+    } else {
+      r = INTL[zone] || INTL.zoneA;
+    }
+    const baseRate = type === 'dox' ? r.dox    : r.nondox;
+    const addlRate = type === 'dox' ? r.addlDox : r.addlNon;
+    base = w <= 500 ? baseRate : baseRate + Math.ceil((w - 500) / 500) * addlRate;
+    if (hasDhl) base += DHL_ADD;
+    showZone(zone);
+  }
 
-  const box = document.getElementById('calcResult');
-  if (box) box.classList.add('show');
+  const fsc  = rnd(base * FSC);
+  const ins  = hasIns ? Math.max(rnd(base * INS_RATE), 50) : 0;
+  const gst  = rnd((base + fsc + ins) * GST);
+  const tot  = rnd(base + fsc + ins + gst);
+
+  if (el('r-base'))  el('r-base').textContent  = fmt(base);
+  if (el('r-fuel'))  el('r-fuel').textContent  = fmt(fsc);
+  if (el('r-ins'))   el('r-ins').textContent   = fmt(ins);
+  if (el('r-gst'))   el('r-gst').textContent   = fmt(gst);
+  if (el('r-total')) el('r-total').textContent = fmt(tot);
+
+  const ir = el('r-ins-row');
+  if (ir) ir.style.display = hasIns ? '' : 'none';
+  el('calcResult')?.classList.add('show');
 }
 
 function resetCalc() {
-  const fields = ['c-dest-state', 'c-weight', 'c-ins', 'c-dhl'];
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (el.type === 'checkbox') el.checked = false;
-    else el.value = '';
-  });
-  const box = document.getElementById('calcResult');
-  if (box) box.classList.remove('show');
-  const zi = document.getElementById('zone-info');
-  if (zi) zi.classList.remove('show');
+  const wi = el('c-weight');
+  if (wi) wi.value = '';
+  ['c-ins','c-dhl'].forEach(id => { const e = el(id); if (e) e.checked = false; });
+  el('calcResult')?.classList.remove('show');
+  el('zone-info')?.classList.remove('show');
 }
 
-/* ── ATTACH LISTENERS ON DOM READY ── */
+/* ── INIT ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-  const ids = ['c-svc','c-dest-state','c-destination','c-country','c-type','c-weight','c-ins','c-dhl'];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
-    el.addEventListener(evt, () => {
+  ['c-svc','c-zone','c-priority-zone','c-heavy-sfc-zone','c-heavy-air-zone',
+   'c-destination','c-country','c-type','c-weight','c-ins','c-dhl'].forEach(id => {
+    const e = el(id);
+    if (!e) return;
+    e.addEventListener(e.tagName === 'SELECT' || e.type === 'checkbox' ? 'change' : 'input', () => {
       if (id === 'c-svc') calcToggleFields();
       else if (id === 'c-country') updateZoneFromCountry();
       else computeRate();
     });
   });
-  calcToggleFields(); // init state
+  calcToggleFields();
 });

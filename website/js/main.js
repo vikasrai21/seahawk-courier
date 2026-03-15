@@ -157,3 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+/* ── GO TO TRACK PAGE ─────────────────────────────────────── */
+function goToTrack() {
+  const awb = (document.getElementById('awb-input')?.value || '').trim();
+  if (!awb) { document.getElementById('awb-input')?.focus(); return; }
+  window.location.href = 'track.html?awb=' + encodeURIComponent(awb);
+}
