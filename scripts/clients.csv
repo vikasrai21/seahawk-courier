@@ -1,0 +1,17 @@
+# Sea Hawk Courier — Bulk Client Login Import
+# Format: name,email,password,role
+# Role options: STAFF or ADMIN
+# Password rules: min 8 chars, at least 1 uppercase, 1 number
+# Lines starting with # are ignored
+#
+# HOW TO USE:
+#   1. Edit this file with your clients' details
+#   2. cd backend
+#   3. node ../scripts/create-clients.js --csv
+
+name,email,password,role
+Rahul Aggarwal,rahul@acmecorp.com,Seahawk@2025,STAFF
+Priya Sharma,priya@kapoorexports.in,Seahawk@2025,STAFF
+Amit Bansal,amit@delhibusiness.com,Seahawk@2025,STAFF
+Sunita Mehra,sunita@techgrow.in,Seahawk@2025,STAFF
+Vikas Gupta,vikas@noidaexports.com,Seahawk@2025,STAFF

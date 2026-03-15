@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════════════════
+#  netlify.toml — Sea Hawk Courier & Cargo
+#  One-click deployment from GitHub to Netlify
+#
+#  HOW TO USE:
+#  1. Push your repo to GitHub
+#  2. Netlify → New Site → Import from GitHub → select repo
+#  3. Netlify reads this file automatically — no manual config needed
+#  4. Set environment variables in Netlify dashboard (see below)
+# ═══════════════════════════════════════════════════════════════
+
+# ── Build settings ────────────────────────────────────────────
+[build]
+  # Build the React portal from the frontend folder
+  base    = "frontend"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+# ── Environment variables for build ──────────────────────────
+#  Set VITE_API_URL in Netlify dashboard under:
+#  Site Settings → Environment Variables → Add Variable
+#
+#  Key:   VITE_API_URL
+#  Value: https://YOUR-APP.up.railway.app/api
+#
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── SPA routing — React Router needs this ────────────────────
+#  Without this, refreshing any page gives a 404
+[[redirects]]
+  from   = "/portal/*"
+  to     = "/index.html"
+  status = 200
+
+# ── API proxy — forward /api to your backend ─────────────────
+#  This means your frontend calls /api/... and Netlify
+#  forwards it to Railway — no CORS issues in production
+[[redirects]]
+  from   = "/api/*"
+  to     = "https://YOUR-APP.up.railway.app/api/:splat"
+  status = 200
+  force  = true
+
+  [redirects.headers]
+    X-From = "Netlify"
+
+# ── Security headers ──────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "SAMEORIGIN"
+    X-XSS-Protection       = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
+
+# Long cache for static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
